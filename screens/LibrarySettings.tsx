@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
+import Voice from "@react-native-voice/voice";
 import { colors } from "../theme";
 
 type Surah = { number:number; name:string; ayahs:{id:number;text:string}[] };
@@ -12,6 +13,7 @@ const ar = (n:number) => String(n).replace(/\d/g,d=>"٠١٢٣٤٥٦٧٨٩"[Numbe
 
 export default function LibrarySettings({surahs,adhkar}:{surahs:Surah[];adhkar:Group[]}) {
  const [query,setQuery]=useState("");
+ const [listening,setListening]=useState(false);
  const [fontSize,setFontSize]=useState(22);
  const [reminders,setReminders]=useState(true);
  const [reminderTime,setReminderTime]=useState("20:00");
@@ -20,7 +22,7 @@ export default function LibrarySettings({surahs,adhkar}:{surahs:Surah[];adhkar:G
  const [restoreText,setRestoreText]=useState("");
  const [restoreOpen,setRestoreOpen]=useState(false);
  const [saved,setSaved]=useState(false);
- useEffect(()=>{AsyncStorage.getItem(SETTINGS_KEY).then(v=>{if(!v)return;const x=JSON.parse(v);setFontSize(x.quranFontSize??22);setReminders(x.dailyReminderPreference??true);setReminderTime(x.dailyReminderTime??"20:00");setCompact(x.compactHome??false)}).catch(()=>{});},[]);
+ useEffect(()=>{AsyncStorage.getItem(SETTINGS_KEY).then(v=>{if(!v)return;const x=JSON.parse(v);setFontSize(x.quranFontSize??22);setReminders(x.dailyReminderPreference??true);setReminderTime(x.dailyReminderTime??"20:00");setCompact(x.compactHome??false)}).catch(()=>{});Voice.onSpeechResults=(event:any)=>{const phrase=event.value?.[0];if(phrase)setQuery(phrase);setListening(false)};Voice.onSpeechError=()=>{setListening(false);Alert.alert("تعذر التعرف على الصوت","تأكد من صلاحية الميكروفون وتوفر خدمة التعرف على الكلام في الهاتف.")};return()=>{Voice.destroy().then(()=>Voice.removeAllListeners()).catch(()=>{});};},[]);
  const saveSettings=async(patch:Record<string,any>)=>{try{const raw=await AsyncStorage.getItem(SETTINGS_KEY);const next={...(raw?JSON.parse(raw):{}),...patch};await AsyncStorage.setItem(SETTINGS_KEY,JSON.stringify(next));setSaved(true);setTimeout(()=>setSaved(false),2000)}catch{Alert.alert("تعذر الحفظ","لم نتمكن من حفظ الإعدادات على الجهاز.")}};
  const normalize=(v:string)=>v.normalize("NFD").replace(/[\u0300-\u036f\u064B-\u065F\u0670\u0640]/g,"").toLowerCase();
  const results=useMemo(()=>{
@@ -33,6 +35,7 @@ export default function LibrarySettings({surahs,adhkar}:{surahs:Surah[];adhkar:G
  const scheduleReminder=async()=>{try{const match=reminderTime.match(/^(\d{1,2}):(\d{2})$/);if(!match)throw new Error("time");const hour=Number(match[1]),minute=Number(match[2]);if(hour>23||minute>59)throw new Error("time");const permission=await Notifications.requestPermissionsAsync();if(!permission.granted){Alert.alert("الإشعارات غير مفعّلة","اسمح بالإشعارات من إعدادات الهاتف ثم حاول مجددًا.");return;}const raw=await AsyncStorage.getItem(SETTINGS_KEY);const old=raw?JSON.parse(raw):{};if(old.dailyReminderId)await Notifications.cancelScheduledNotificationAsync(old.dailyReminderId).catch(()=>{});if(!reminders){await AsyncStorage.setItem(SETTINGS_KEY,JSON.stringify({...old,dailyReminderPreference:false,dailyReminderId:null,dailyReminderTime:reminderTime}));setReminderStatus("تم إيقاف التذكير اليومي.");return;}const id=await Notifications.scheduleNotificationAsync({content:{title:"نور الإسلام",body:"حان وقت وردك اليومي من القرآن أو الأذكار. اجعل لك وقتًا يناسبك.",sound:true},trigger:{hour,minute,repeats:true}});await AsyncStorage.setItem(SETTINGS_KEY,JSON.stringify({...old,dailyReminderPreference:true,dailyReminderId:id,dailyReminderTime:reminderTime}));setReminderStatus("تم جدولة تذكير يومي على هذا الجهاز.");}catch{Alert.alert("تعذر ضبط التذكير","تحقق من الوقت بصيغة 20:00 ثم حاول مرة أخرى.");}};
  const backup=async()=>{try{const keys=await AsyncStorage.getAllKeys();const pairs=await AsyncStorage.multiGet(keys);const payload={app:"نور الإسلام",backupVersion:BACKUP_VERSION,createdAt:new Date().toISOString(),data:Object.fromEntries(pairs.filter((x):x is [string,string]=>!!x[0]&&x[1]!==null))};await Share.share({title:"نسخة احتياطية - نور الإسلام",message:JSON.stringify(payload,null,2)});}catch{Alert.alert("تعذر التصدير","لم نتمكن من إعداد النسخة الاحتياطية.");}};
  const restore=async()=>{try{const parsed=JSON.parse(restoreText);if(!parsed||parsed.app!=="نور الإسلام"||parsed.backupVersion!==BACKUP_VERSION||!parsed.data||typeof parsed.data!=="object"||Array.isArray(parsed.data))throw new Error("invalid");const pairs=Object.entries(parsed.data);if(!pairs.length)throw new Error("empty");if(pairs.some(([k,v])=>typeof k!=="string"||typeof v!=="string"))throw new Error("invalid");Alert.alert("تأكيد الاستعادة",`سيتم استبدال البيانات المحفوظة للمفاتيح الموجودة في النسخة (${ar(pairs.length)} عنصر). هل تريد المتابعة؟`,[{text:"إلغاء",style:"cancel"},{text:"استعادة",style:"destructive",onPress:async()=>{try{await AsyncStorage.multiSet(pairs as [string,string][]);setRestoreText("");setRestoreOpen(false);Alert.alert("تمت الاستعادة","أُعيدت البيانات المحلية. قد تحتاج لإعادة فتح الشاشة لرؤية التغييرات.");}catch{Alert.alert("تعذر الاستعادة","حدث خطأ أثناء كتابة البيانات.");}}}]);}catch{Alert.alert("ملف غير صالح","الصق محتوى JSON كاملًا صادرًا من النسخة الاحتياطية داخل التطبيق.");}};
+ const toggleVoice=async()=>{try{if(listening){await Voice.stop();setListening(false);return;}setListening(true);await Voice.start("ar-EG");}catch{setListening(false);Alert.alert("البحث الصوتي غير متاح","تحقق من تثبيت خدمات التعرف على الكلام وصلاحية الميكروفون.");}};
  const open=async(url:string)=>{try{await Linking.openURL(url)}catch{Alert.alert("تعذر فتح الرابط","تحقق من اتصالك بالإنترنت أو افتح الرابط من المتصفح.")}};
  const LinkRow=({title,description,url}:{title:string;description:string;url:string})=><Pressable onPress={()=>open(url)} style={s.link}><Text style={s.linkTitle}>{title} ↗</Text><Text style={s.note}>{description}</Text></Pressable>;
  return <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
@@ -40,7 +43,7 @@ export default function LibrarySettings({surahs,adhkar}:{surahs:Surah[];adhkar:G
   <Text style={s.note}>أدوات البحث والتخصيص والنسخ الاحتياطي. لا نعرض نصوص تفسير أو أحاديث غير موثقة محليًا؛ الروابط التالية تفتح مصادر للقراءة والتحقق.</Text>
   <View style={s.card}>
    <Text style={s.heading}>🔎 البحث في القرآن والأذكار</Text>
-   <TextInput value={query} onChangeText={setQuery} style={s.input} placeholder="اكتب عبارة من آية أو ذكر" placeholderTextColor={colors.muted}/>
+   <TextInput value={query} onChangeText={setQuery} style={s.input} placeholder="اكتب عبارة من آية أو ذكر" placeholderTextColor={colors.muted}/><Pressable style={s.secondary} onPress={toggleVoice}><Text style={s.body}>{listening?"🎙️ جارٍ الاستماع… اضغط للإيقاف":"🎙️ البحث بالصوت بالعربية"}</Text></Pressable>
    {query.trim().length>=2&&results.length===0?<Text style={s.note}>لا توجد نتائج في البيانات المحلية المحمّلة.</Text>:null}
    {results.map(r=><View key={r.key} style={s.result}><Text style={s.note}>{r.kind} · {r.title}</Text><Text style={s.body}>{r.text}</Text></View>)}
    <Text style={s.note}>تظهر حتى ٤٠ نتيجة. البحث نصي حاليًا ولا يتضمن التعرف على الصوت.</Text>
