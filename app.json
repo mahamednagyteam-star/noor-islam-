@@ -37,7 +37,8 @@
             "./assets/adhan/fajr.mp3"
           ]
         }
-      ]
+      ],
+      "./plugins/withPrayerWidget"
     ]
   }
 }
