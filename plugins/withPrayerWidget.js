@@ -53,11 +53,20 @@ module.exports = function withPrayerWidget(config) {
     if (!source.includes(importLine)) {
       source = source.replace(/^(package [^\n]+\n)/m, "$1\n" + importLine + "\n");
     }
-    const marker = "PackageList(this).packages.apply {";
-    if (source.includes(marker) && !source.includes("add(PrayerWidgetPackage())")) {
-      source = source.replace(marker, marker + "\n          add(PrayerWidgetPackage())");
-    } else if (!source.includes("add(PrayerWidgetPackage())")) {
-      throw new Error("Prayer widget: could not find PackageList packages block in MainApplication.kt");
+    if (!source.includes("add(PrayerWidgetPackage())") && !source.includes("packages.add(PrayerWidgetPackage())")) {
+      // Expo SDK templates differ: newer templates use packages.apply { ... },
+      // while older templates declare a local packages variable and return it.
+      const applyMatch = source.match(/PackageList\\([^)]*\\)\\.packages\\s*\\.apply\\s*\\{/);
+      if (applyMatch) {
+        source = source.replace(applyMatch[0], applyMatch[0] + "\\n          add(PrayerWidgetPackage())");
+      } else {
+        const variableMatch = source.match(/(?:val|var)\\s+packages\\s*=\\s*PackageList\\([^)]*\\)\\.packages/);
+        if (variableMatch) {
+          source = source.replace(variableMatch[0], variableMatch[0] + "\\n          packages.add(PrayerWidgetPackage())");
+        } else {
+          throw new Error("Prayer widget: could not locate a supported PackageList registration pattern in MainApplication.kt");
+        }
+      }
     }
     await fs.promises.writeFile(mainApplication, source);
 
