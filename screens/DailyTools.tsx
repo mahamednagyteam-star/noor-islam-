@@ -66,10 +66,9 @@ export default function DailyTools({ surahs, adhkar }: Props) {
   }
   return found;
  }, [query, surahs, adhkar]);
- const randomVerse = useMemo(() => {
-  const s = surahs[17] ?? surahs[0];
-  return s?.ayahs[Math.min(4, (s?.ayahs.length ?? 1)-1)];
- }, [surahs]);
+ const practiceSurah = surahs[practiceSurahIndex] ?? surahs[0];
+ const randomVerse = practiceSurah?.ayahs[practiceAyahIndex] ?? practiceSurah?.ayahs[0];
+ const nextPractice = () => { const nextSurah = Math.floor(Math.random() * Math.max(1, surahs.length)); const target = surahs[nextSurah]; setPracticeSurahIndex(nextSurah); setPracticeAyahIndex(Math.floor(Math.random() * Math.max(1, target?.ayahs.length ?? 1))); setShowVerse(false); };
  const exportData = async () => {
   try {
    const raw = await AsyncStorage.getItem(STORE);
