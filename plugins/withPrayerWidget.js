@@ -5,8 +5,21 @@ const PKG = "com.noorislam.app.widget";
 
 module.exports = function withPrayerWidget(config) {
   config = withAndroidManifest(config, mod => {
-    const app = mod.modResults.manifest.application?.[0];
+    const manifest = mod.modResults.manifest;
+    const app = manifest.application?.[0];
     if (!app) throw new Error("Prayer widget: application entry missing");
+
+    // Resolve the legacy support-compat vs AndroidX manifest conflict from
+    // react-native-voice's transitive Android dependencies. Keep AndroidX's
+    // CoreComponentFactory, which is the implementation used by this app.
+    manifest.$ = manifest.$ || {};
+    manifest.$["xmlns:tools"] = manifest.$["xmlns:tools"] || "http://schemas.android.com/tools";
+    app.$ = app.$ || {};
+    app.$["android:appComponentFactory"] = "androidx.core.app.CoreComponentFactory";
+    const existingReplace = (app.$["tools:replace"] || "").split(",").map(value => value.trim()).filter(Boolean);
+    if (!existingReplace.includes("android:appComponentFactory")) existingReplace.push("android:appComponentFactory");
+    app.$["tools:replace"] = existingReplace.join(",");
+
     app.receiver = app.receiver || [];
     const name = PKG + ".PrayerWidgetProvider";
     if (!app.receiver.some(x => x.$?.["android:name"] === name)) app.receiver.push({
