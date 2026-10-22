@@ -62,7 +62,7 @@ export default function Prayer(){
      count++;
     }
    }
-   setAlerts(true);Alert.alert("تم تفعيل الأذان","تمت جدولة ${count} تنبيهًا محليًا للأيام السبعة القادمة. تعمل المواقيت والتنبيهات دون إنترنت بعد حفظ الموقع، ما دامت إعدادات الجهاز تسمح بالتنبيهات.");
+   setAlerts(true);Alert.alert("تم تفعيل الأذان",`تمت جدولة ${count} تنبيهًا محليًا للأيام السبعة القادمة. تعمل المواقيت والتنبيهات دون إنترنت بعد حفظ الموقع، ما دامت إعدادات الجهاز تسمح بالتنبيهات.`);
   }catch(e){Alert.alert("تعذر جدولة الأذان","تحقق من إذن التنبيهات وإعدادات البطارية، ثم حاول مجددًا.");}
  };
  return <ScrollView contentContainerStyle={s.content}><Text style={s.title}>مواقيت الصلاة والقبلة</Text><Text style={s.subtitle}>{city}</Text>
