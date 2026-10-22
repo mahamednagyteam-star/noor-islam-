@@ -158,6 +158,20 @@ class PrayerWidgetProvider : AppWidgetProvider() {
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
  android:minWidth="220dp" android:minHeight="120dp" android:updatePeriodMillis="1800000"
  android:initialLayout="@layout/noor_prayer_widget" android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen" />`);
+    // Remove obsolete Android Support artifacts pulled transitively by the legacy voice package.
+    // Expo SDK 52 uses AndroidX; keeping these old artifacts causes duplicate classes at release build time.
+    const appGradle = path.join(root, "android/app/build.gradle");
+    let gradle = await fs.promises.readFile(appGradle, "utf8");
+    const exclusionBlock = `
+configurations.configureEach {
+    exclude group: "com.android.support", module: "support-compat"
+    exclude group: "com.android.support", module: "versionedparcelable"
+}
+`;
+    if (!gradle.includes('module: "support-compat"')) {
+      gradle += "\\n" + exclusionBlock;
+      await fs.promises.writeFile(appGradle, gradle);
+    }
     return mod;
   }]);
   return config;
