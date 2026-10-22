@@ -12,6 +12,7 @@ permissions:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -19,6 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -26,6 +28,10 @@ jobs:
           java-version: 17
       - name: Install dependencies
         run: npm install
+      - name: Download app data
+        run: npm run prepare:data
+      - name: Validate data files
+        run: node -e "const q=require('./data/quran-uthmani.json'); const h=require('./data/hisn-muslim.json'); if(!Array.isArray(q)||q.length!==114||!h||typeof h!=='object') process.exit(1); console.log('Validated Quran surahs:',q.length,'; adhkar sections:',Object.keys(h).length)"
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive
       - name: Build release APK
