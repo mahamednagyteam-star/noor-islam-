@@ -13,6 +13,7 @@ export default function Reciters({ surahs }: { surahs: Surah[] }) {
   const play = async () => {
     await stop(); setError("");
     try {
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true, shouldDuckAndroid: true });
       const r = reciters[ri], surah = surahs[si];
       const url = `https://everyayah.com/data/${r.folder}/${String(surah.number).padStart(3, "0")}${String(surah.ayahs[0]?.id ?? 1).padStart(3, "0")}.mp3`;
       const result = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
