@@ -23,7 +23,8 @@ export default function Features({surahs}:Props) {
  const [last,setLast]=useState({surah:1,ayah:1});
  const [dark,setDark]=useState(true);
  const [downloads,setDownloads]=useState<string[]>([]);
- const [loading,setLoading]=useState(false);\n const [downloadProgress,setDownloadProgress]=useState("");
+ const [loading,setLoading]=useState(false);
+ const [downloadProgress,setDownloadProgress]=useState("");
  const [reciter,setReciter]=useState("Alafasy_128kbps");
  const [surahNum,setSurahNum]=useState("1");
  const [ayahNum,setAyahNum]=useState("1");
