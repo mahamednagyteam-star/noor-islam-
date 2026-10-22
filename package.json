@@ -7,7 +7,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "prepare:data": "node scripts/prepare-data.mjs",
-    "prebuild:android": "npm run prepare:data && npx expo prebuild --platform android --non-interactive",
+    "prebuild:android": "npm run prepare:data && npx expo prebuild --platform android",
     "build:android": "npm run prebuild:android && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
