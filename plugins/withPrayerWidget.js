@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { withAndroidManifest, withDangerousMod, withMainApplication } = require("@expo/config-plugins");
+const { withAndroidManifest, withDangerousMod } = require("@expo/config-plugins");
 const PKG = "com.noorislam.app.widget";
 
 module.exports = function withPrayerWidget(config) {
@@ -16,21 +16,52 @@ module.exports = function withPrayerWidget(config) {
     });
     return mod;
   });
-  config = withMainApplication(config, mod => {
-    let source = mod.modResults.contents;
-    if (!source.includes("import " + PKG + ".PrayerWidgetPackage")) source = source.replace(/(package [^\n]+\n)/, "$1\nimport " + PKG + ".PrayerWidgetPackage\n");
-    const marker = "PackageList(this).packages.apply {";
-    if (source.includes(marker) && !source.includes("add(PrayerWidgetPackage())")) source = source.replace(marker, marker + "\n          add(PrayerWidgetPackage())");
-    mod.modResults.contents = source;
-    return mod;
-  });
+
   config = withDangerousMod(config, ["android", async mod => {
     const root = mod.modRequest.projectRoot;
-    const java = path.join(root, "android/app/src/main/java/com/noorislam/app/widget");
+    const javaRoot = path.join(root, "android/app/src/main/java");
+    const widgetPackage = path.join(javaRoot, "com/noorislam/app/widget");
     const layout = path.join(root, "android/app/src/main/res/layout");
     const xml = path.join(root, "android/app/src/main/res/xml");
-    await Promise.all([fs.promises.mkdir(java, { recursive: true }), fs.promises.mkdir(layout, { recursive: true }), fs.promises.mkdir(xml, { recursive: true })]);
-    await fs.promises.writeFile(path.join(java, "PrayerWidgetModule.kt"), `package com.noorislam.app.widget
+    await Promise.all([
+      fs.promises.mkdir(widgetPackage, { recursive: true }),
+      fs.promises.mkdir(layout, { recursive: true }),
+      fs.promises.mkdir(xml, { recursive: true })
+    ]);
+
+    // Expo SDK 52 does not expose withMainApplication from every config-plugins
+    // entry point. Patch the generated Kotlin application during the dangerous mod.
+    async function findMainApplication(dir) {
+      let entries;
+      try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); }
+      catch { return null; }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          const found = await findMainApplication(full);
+          if (found) return found;
+        } else if (entry.name === "MainApplication.kt") {
+          return full;
+        }
+      }
+      return null;
+    }
+    const mainApplication = await findMainApplication(javaRoot);
+    if (!mainApplication) throw new Error("Prayer widget: MainApplication.kt not found after Expo prebuild");
+    let source = await fs.promises.readFile(mainApplication, "utf8");
+    const importLine = "import " + PKG + ".PrayerWidgetPackage";
+    if (!source.includes(importLine)) {
+      source = source.replace(/^(package [^\n]+\n)/m, "$1\n" + importLine + "\n");
+    }
+    const marker = "PackageList(this).packages.apply {";
+    if (source.includes(marker) && !source.includes("add(PrayerWidgetPackage())")) {
+      source = source.replace(marker, marker + "\n          add(PrayerWidgetPackage())");
+    } else if (!source.includes("add(PrayerWidgetPackage())")) {
+      throw new Error("Prayer widget: could not find PackageList packages block in MainApplication.kt");
+    }
+    await fs.promises.writeFile(mainApplication, source);
+
+    await fs.promises.writeFile(path.join(widgetPackage, "PrayerWidgetModule.kt"), `package com.noorislam.app.widget
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
@@ -50,7 +81,7 @@ class PrayerWidgetModule(private val context: ReactApplicationContext) : ReactCo
   } catch (e: Exception) { promise.reject("WIDGET_UPDATE_FAILED", e) }
  }
 }`);
-    await fs.promises.writeFile(path.join(java, "PrayerWidgetPackage.kt"), `package com.noorislam.app.widget
+    await fs.promises.writeFile(path.join(widgetPackage, "PrayerWidgetPackage.kt"), `package com.noorislam.app.widget
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
@@ -59,11 +90,10 @@ class PrayerWidgetPackage : ReactPackage {
  override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> = listOf(PrayerWidgetModule(context))
  override fun createViewManagers(context: ReactApplicationContext): List<ViewManager<*, *>> = emptyList()
 }`);
-    await fs.promises.writeFile(path.join(java, "PrayerWidgetProvider.kt"), `package com.noorislam.app.widget
+    await fs.promises.writeFile(path.join(widgetPackage, "PrayerWidgetProvider.kt"), `package com.noorislam.app.widget
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
