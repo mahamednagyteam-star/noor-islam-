@@ -6,7 +6,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "build:android": "expo prebuild --platform android"
+    "prepare:data": "node scripts/prepare-data.mjs",
+    "prebuild:android": "npm run prepare:data && npx expo prebuild --platform android --non-interactive",
+    "build:android": "npm run prebuild:android && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
@@ -15,5 +17,10 @@
     "expo-location": "~18.0.4",
     "react": "18.3.1",
     "react-native": "0.76.9"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~18.3.12",
+    "typescript": "~5.3.3"
   }
 }
