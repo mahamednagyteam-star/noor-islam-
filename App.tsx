@@ -18,12 +18,12 @@ const names = ["الفاتحة","البقرة","آل عمران","النساء",
 const surahs = quranData.map((x,i)=>({number:x.id,name:names[i]??`سورة ${x.id}`,ayahs:x.verses}));
 const adhkar = Object.entries(hisnData).map(([title,v])=>({title,items:v.text,notes:v.footnote}));
 function Card({children}:{children:React.ReactNode}){return <View style={s.card}>{children}</View>}
-function Home({go}:{go:(t:Tab)=>void}){return <ScrollView contentContainerStyle={s.content}>
+function Home({go}:{go:(t:Tab)=>void}){const [compact,setCompact]=useState(false);useEffect(()=>{AsyncStorage.getItem("noor:settings:v1").then(v=>{if(v)setCompact(!!JSON.parse(v).compactHome)}).catch(()=>{});},[]);return <ScrollView contentContainerStyle={s.content}>
   <View style={s.hero}><Text style={s.kicker}>السلام عليكم ورحمة الله وبركاته</Text><Text style={s.logo}>نور الإسلام</Text><Text style={s.hint}>رفيقك اليومي للعبادة والذكر</Text></View>
-  <Card><Text style={s.cardTitle}>أهلاً بك في نور الإسلام</Text><Text style={s.body}>اجعل لك ورداً يومياً من القرآن والذكر، واستمع إلى التلاوات، واستخدم المسبحة الإلكترونية.</Text></Card>
+  {!compact?<Card><Text style={s.cardTitle}>أهلاً بك في نور الإسلام</Text><Text style={s.body}>اجعل لك ورداً يومياً من القرآن والذكر، واستمع إلى التلاوات، واستخدم المسبحة الإلكترونية.</Text></Card>:null}
   <Text style={s.heading}>الوصول السريع</Text><View style={s.grid}>
   {([["quran","القرآن الكريم","📖"],["adhkar","حصن المسلم","🤲"],["reciters","القرّاء","🎧"],["prayer","مواقيت الصلاة","🕌"],["qibla","اتجاه القبلة","🧭"],["tasbeeh","المسبحة","📿"],["features","مزايا إضافية","🌙"],["tools","خطة وعبادات","✅"],["library","المكتبة والإعدادات","📚"]] as [Tab,string,string][]).map(([tab,label,icon])=><Pressable key={tab} onPress={()=>go(tab)} style={s.quick}><Text style={s.icon}>{icon}</Text><Text style={s.quickText}>{label}</Text></Pressable>)}
-  </View><Text style={s.small}>ملاحظة: مواقيت الصلاة الدقيقة تحتاج إلى خدمة حساب مخصصة وموقعك. تحقق من توقيت بلدك من مصدر موثوق.</Text>
+  </View>{!compact?<Text style={s.small}>ملاحظة: مواقيت الصلاة الدقيقة تحتاج إلى خدمة حساب مخصصة وموقعك. تحقق من توقيت بلدك من مصدر موثوق.</Text>:null}
 </ScrollView>}
 function Quran(){
  const [selected,setSelected]=useState(0),[last,setLast]=useState({surah:1,ayah:1}),[bookmarks,setBookmarks]=useState<{surah:number;ayah:number;name:string}[]>([]),[quranFontSize,setQuranFontSize]=useState(22),[verseNotes,setVerseNotes]=useState<Record<string,string>>({}),[noteAyah,setNoteAyah]=useState<number|null>(null),[noteText,setNoteText]=useState("");
