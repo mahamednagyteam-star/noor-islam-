@@ -70,6 +70,35 @@ jobs:
         run: node -e "const q=require('./data/quran-uthmani.json'); const h=require('./data/hisn-muslim.json'); if(!Array.isArray(q)||q.length!==114||!h||typeof h!=='object') process.exit(1); console.log('Validated Quran surahs:',q.length,'; adhkar sections:',Object.keys(h).length)"
       - name: Generate native Android project
         run: npx expo prebuild --platform android
+      - name: Install Android NDK with retry
+        shell: bash
+        env:
+          ANDROID_NDK_VERSION: 26.1.10909125
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "${SDKMANAGER}" ]]; then
+            SDKMANAGER="$(find "${SDK_ROOT}/cmdline-tools" -type f -name sdkmanager -perm -u+x 2>/dev/null | sort | tail -n 1)"
+          fi
+          if [[ -z "${SDKMANAGER}" || ! -x "${SDKMANAGER}" ]]; then
+            echo "Could not find Android sdkmanager under ${SDK_ROOT}"
+            exit 1
+          fi
+          for attempt in 1 2 3; do
+            echo "Installing NDK ${ANDROID_NDK_VERSION} (attempt ${attempt}/3)"
+            rm -rf "${SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}"
+            if "${SDKMANAGER}" --sdk_root="${SDK_ROOT}" --install "ndk;${ANDROID_NDK_VERSION}"; then
+              if [[ -x "${SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" ]]; then
+                echo "NDK ${ANDROID_NDK_VERSION} installed and verified."
+                exit 0
+              fi
+              echo "NDK installation returned success but clang is missing."
+            fi
+            sleep $((attempt * 10))
+          done
+          echo "NDK installation failed after three attempts."
+          exit 1
       - name: Build release APK
         working-directory: android
         env:
