@@ -40,6 +40,7 @@ export default function Features({surahs}:Props) {
   <View style={s.card}><Text style={s.heading}>📖 متابعة ختم القرآن</Text><Text style={s.body}>آخر موضع محفوظ: سورة {selectedSurah?.name??"الفاتحة"}، الآية {ar(last.ayah)}</Text>
    <View style={s.row}><TextInput value={surahNum} onChangeText={setSurahNum} keyboardType="number-pad" placeholder="رقم السورة" placeholderTextColor={colors.muted} style={s.input}/><TextInput value={ayahNum} onChangeText={setAyahNum} keyboardType="number-pad" placeholder="رقم الآية" placeholderTextColor={colors.muted} style={s.input}/></View>
    <Pressable style={s.button} onPress={saveLast}><Text style={s.buttonText}>حفظ موضع القراءة</Text></Pressable>
+   <Pressable style={s.button} onPress={()=>mark(Math.max(1,Math.min(114,Number(surahNum)||1)),Math.max(1,Number(ayahNum)||1))}><Text style={s.buttonText}>إضافة الآية المحددة إلى العلامات المرجعية</Text></Pressable>
    <Text style={s.body}>العلامات المرجعية ({ar(bookmarks.length)})</Text>{bookmarks.map(b=><View key={b.surah+"-"+b.ayah} style={s.bookmark}><Text style={s.body}>سورة {b.name} · الآية {ar(b.ayah)}</Text><Pressable onPress={()=>mark(b.surah,b.ayah)}><Text style={s.link}>إزالة</Text></Pressable></View>)}
    {surahs.slice(0,8).map(su=><View key={su.number} style={s.bookmark}><Text style={s.body}>سورة {su.name}</Text><Pressable onPress={()=>mark(su.number,1)}><Text style={s.link}>{bookmarks.some(b=>b.surah===su.number&&b.ayah===1)?"★ محفوظة":"☆ أضف علامة"}</Text></Pressable></View>)}
   </View>
