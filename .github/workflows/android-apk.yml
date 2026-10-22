@@ -17,6 +17,8 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      CI: 1
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,9 +38,11 @@ jobs:
       - name: Validate data files
         run: node -e "const q=require('./data/quran-uthmani.json'); const h=require('./data/hisn-muslim.json'); if(!Array.isArray(q)||q.length!==114||!h||typeof h!=='object') process.exit(1); console.log('Validated Quran surahs:',q.length,'; adhkar sections:',Object.keys(h).length)"
       - name: Generate native Android project
-        run: npx expo prebuild --platform android --non-interactive
+        run: npx expo prebuild --platform android
       - name: Build release APK
         working-directory: android
+        env:
+          NODE_ENV: production
         run: ./gradlew assembleRelease
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
