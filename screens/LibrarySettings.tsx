@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 import { colors } from "../theme";
 
 type Surah = { number:number; name:string; ayahs:{id:number;text:string}[] };
@@ -12,12 +13,12 @@ const ar = (n:number) => String(n).replace(/\d/g,d=>"٠١٢٣٤٥٦٧٨٩"[Numbe
 export default function LibrarySettings({surahs,adhkar}:{surahs:Surah[];adhkar:Group[]}) {
  const [query,setQuery]=useState("");
  const [fontSize,setFontSize]=useState(22);
- const [reminders,setReminders]=useState(true);
+ const [reminders,setReminders]=useState(true);\n const [reminderTime,setReminderTime]=useState("20:00");\n const [reminderStatus,setReminderStatus]=useState("");
  const [compact,setCompact]=useState(false);
  const [restoreText,setRestoreText]=useState("");
  const [restoreOpen,setRestoreOpen]=useState(false);
  const [saved,setSaved]=useState(false);
- useEffect(()=>{AsyncStorage.getItem(SETTINGS_KEY).then(v=>{if(!v)return;const x=JSON.parse(v);setFontSize(x.quranFontSize??22);setReminders(x.dailyReminderPreference??true);setCompact(x.compactHome??false)}).catch(()=>{});},[]);
+ useEffect(()=>{AsyncStorage.getItem(SETTINGS_KEY).then(v=>{if(!v)return;const x=JSON.parse(v);setFontSize(x.quranFontSize??22);setReminders(x.dailyReminderPreference??true);setReminderTime(x.dailyReminderTime??"20:00");setCompact(x.compactHome??false)}).catch(()=>{});},[]);
  const saveSettings=async(patch:Record<string,any>)=>{try{const raw=await AsyncStorage.getItem(SETTINGS_KEY);const next={...(raw?JSON.parse(raw):{}),...patch};await AsyncStorage.setItem(SETTINGS_KEY,JSON.stringify(next));setSaved(true);setTimeout(()=>setSaved(false),2000)}catch{Alert.alert("تعذر الحفظ","لم نتمكن من حفظ الإعدادات على الجهاز.")}};
  const normalize=(v:string)=>v.normalize("NFD").replace(/[\u0300-\u036f\u064B-\u065F\u0670\u0640]/g,"").toLowerCase();
  const results=useMemo(()=>{
@@ -27,7 +28,7 @@ export default function LibrarySettings({surahs,adhkar}:{surahs:Surah[];adhkar:G
   for(const group of adhkar)for(let i=0;i<group.items.length;i++)if(normalize(group.items[i]).includes(q)){found.push({key:`d-${group.title}-${i}`,title:group.title,text:group.items[i],kind:"ذكر"});if(found.length>=40)return found;}
   return found;
  },[query,surahs,adhkar]);
- const backup=async()=>{try{const keys=await AsyncStorage.getAllKeys();const pairs=await AsyncStorage.multiGet(keys);const payload={app:"نور الإسلام",backupVersion:BACKUP_VERSION,createdAt:new Date().toISOString(),data:Object.fromEntries(pairs.filter((x):x is [string,string]=>!!x[0]&&x[1]!==null))};await Share.share({title:"نسخة احتياطية - نور الإسلام",message:JSON.stringify(payload,null,2)});}catch{Alert.alert("تعذر التصدير","لم نتمكن من إعداد النسخة الاحتياطية.");}};
+ const scheduleReminder=async()=>{try{const match=reminderTime.match(/^(\\d{1,2}):(\\d{2})$/);if(!match)throw new Error("time");const hour=Number(match[1]),minute=Number(match[2]);if(hour>23||minute>59)throw new Error("time");const permission=await Notifications.requestPermissionsAsync();if(!permission.granted){Alert.alert("الإشعارات غير مفعّلة","اسمح بالإشعارات من إعدادات الهاتف ثم حاول مجددًا.");return;}const raw=await AsyncStorage.getItem(SETTINGS_KEY);const old=raw?JSON.parse(raw):{};if(old.dailyReminderId)await Notifications.cancelScheduledNotificationAsync(old.dailyReminderId).catch(()=>{});if(!reminders){await AsyncStorage.setItem(SETTINGS_KEY,JSON.stringify({...old,dailyReminderPreference:false,dailyReminderId:null,dailyReminderTime:reminderTime}));setReminderStatus("تم إيقاف التذكير اليومي.");return;}const id=await Notifications.scheduleNotificationAsync({content:{title:"نور الإسلام",body:"حان وقت وردك اليومي من القرآن أو الأذكار. اجعل لك وقتًا يناسبك.",sound:true},trigger:{hour,minute,repeats:true}});await AsyncStorage.setItem(SETTINGS_KEY,JSON.stringify({...old,dailyReminderPreference:true,dailyReminderId:id,dailyReminderTime:reminderTime}));setReminderStatus("تم جدولة تذكير يومي على هذا الجهاز.");}catch{Alert.alert("تعذر ضبط التذكير","تحقق من الوقت بصيغة 20:00 ثم حاول مرة أخرى.");}};\n const backup=async()=>{try{const keys=await AsyncStorage.getAllKeys();const pairs=await AsyncStorage.multiGet(keys);const payload={app:"نور الإسلام",backupVersion:BACKUP_VERSION,createdAt:new Date().toISOString(),data:Object.fromEntries(pairs.filter((x):x is [string,string]=>!!x[0]&&x[1]!==null))};await Share.share({title:"نسخة احتياطية - نور الإسلام",message:JSON.stringify(payload,null,2)});}catch{Alert.alert("تعذر التصدير","لم نتمكن من إعداد النسخة الاحتياطية.");}};
  const restore=async()=>{try{const parsed=JSON.parse(restoreText);if(!parsed||parsed.app!=="نور الإسلام"||parsed.backupVersion!==BACKUP_VERSION||!parsed.data||typeof parsed.data!=="object"||Array.isArray(parsed.data))throw new Error("invalid");const pairs=Object.entries(parsed.data);if(!pairs.length)throw new Error("empty");if(pairs.some(([k,v])=>typeof k!=="string"||typeof v!=="string"))throw new Error("invalid");Alert.alert("تأكيد الاستعادة",`سيتم استبدال البيانات المحفوظة للمفاتيح الموجودة في النسخة (${ar(pairs.length)} عنصر). هل تريد المتابعة؟`,[{text:"إلغاء",style:"cancel"},{text:"استعادة",style:"destructive",onPress:async()=>{try{await AsyncStorage.multiSet(pairs as [string,string][]);setRestoreText("");setRestoreOpen(false);Alert.alert("تمت الاستعادة","أُعيدت البيانات المحلية. قد تحتاج لإعادة فتح الشاشة لرؤية التغييرات.");}catch{Alert.alert("تعذر الاستعادة","حدث خطأ أثناء كتابة البيانات.");}}}]);}catch{Alert.alert("ملف غير صالح","الصق محتوى JSON كاملًا صادرًا من النسخة الاحتياطية داخل التطبيق.");}};
  const open=async(url:string)=>{try{await Linking.openURL(url)}catch{Alert.alert("تعذر فتح الرابط","تحقق من اتصالك بالإنترنت أو افتح الرابط من المتصفح.")}};
  const LinkRow=({title,description,url}:{title:string;description:string;url:string})=><Pressable onPress={()=>open(url)} style={s.link}><Text style={s.linkTitle}>{title} ↗</Text><Text style={s.note}>{description}</Text></Pressable>;
@@ -52,10 +53,10 @@ export default function LibrarySettings({surahs,adhkar}:{surahs:Surah[];adhkar:G
    <Text style={s.heading}>⚙️ إعدادات القراءة</Text>
    <Text style={s.body}>حجم خط القرآن: {ar(fontSize)}</Text>
    <View style={s.row}><Pressable style={s.secondary} onPress={()=>{const n=Math.max(16,fontSize-2);setFontSize(n);saveSettings({quranFontSize:n})}}><Text style={s.body}>تصغير الخط</Text></Pressable><Pressable style={s.secondary} onPress={()=>{const n=Math.min(36,fontSize+2);setFontSize(n);saveSettings({quranFontSize:n})}}><Text style={s.body}>تكبير الخط</Text></Pressable><Pressable style={s.secondary} onPress={()=>{setFontSize(22);saveSettings({quranFontSize:22})}}><Text style={s.body}>افتراضي</Text></Pressable></View>
-   <Pressable style={s.checkRow} onPress={()=>{const n=!reminders;setReminders(n);saveSettings({dailyReminderPreference:n})}}><Text style={s.checkbox}>{reminders?"✓":" "}</Text><Text style={s.body}>أفضل إظهار اقتراحات التذكير اليومي</Text></Pressable>
+   <Pressable style={s.checkRow} onPress={()=>setReminders(v=>!v)}><Text style={s.checkbox}>{reminders?"✓":" "}</Text><Text style={s.body}>تفعيل تذكير يومي على الجهاز</Text></Pressable><Text style={s.note}>وقت التذكير (24 ساعة)</Text><TextInput value={reminderTime} onChangeText={setReminderTime} style={s.input} placeholder="20:00" placeholderTextColor={colors.muted}/><Pressable style={s.button} onPress={scheduleReminder}><Text style={s.buttonText}>{reminders?"حفظ وجدولة التذكير":"إيقاف التذكير"}</Text></Pressable>{reminderStatus?<Text style={s.success}>{reminderStatus}</Text>:null}
    <Pressable style={s.checkRow} onPress={()=>{const n=!compact;setCompact(n);saveSettings({compactHome:n})}}><Text style={s.checkbox}>{compact?"✓":" "}</Text><Text style={s.body}>أفضل واجهة مختصرة</Text></Pressable>
    {saved?<Text style={s.success}>تم حفظ تفضيلاتك على الجهاز.</Text>:null}
-   <Text style={s.note}>تُحفظ التفضيلات، ويحتاج تطبيق الخط العام والوضع المختصر على كل الشاشات إلى ربط إضافي في الواجهة. هذه الخيارات لا تغيّر إعدادات نظام أندرويد.</Text>
+   <Text style={s.note}>يُطبّق حجم الخط على قارئ القرآن والوضع المختصر على الصفحة الرئيسية. يحتاج التذكير إلى إذن الإشعارات، وقد تقيّد بعض الهواتف عمله في الخلفية.</Text>
   </View>
   <View style={s.card}>
    <Text style={s.heading}>💾 النسخ الاحتياطي والاستعادة</Text>
