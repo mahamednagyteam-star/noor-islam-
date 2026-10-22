@@ -18,7 +18,8 @@
         "POST_NOTIFICATIONS",
         "VIBRATE",
         "SCHEDULE_EXACT_ALARM",
-        "RECEIVE_BOOT_COMPLETED"
+        "RECEIVE_BOOT_COMPLETED",
+        "RECORD_AUDIO"
       ]
     },
     "ios": {
