@@ -169,7 +169,7 @@ configurations.configureEach {
 }
 `;
     if (!gradle.includes('module: "support-compat"')) {
-      gradle += "\\n" + exclusionBlock;
+      gradle += "\n" + exclusionBlock;
       await fs.promises.writeFile(appGradle, gradle);
     }
     return mod;
