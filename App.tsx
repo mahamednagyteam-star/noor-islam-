@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert, I18nManager, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import Reciters from "./screens/Reciters";
@@ -22,12 +23,22 @@ function Home({go}:{go:(t:Tab)=>void}){return <ScrollView contentContainerStyle=
   {([["quran","القرآن الكريم","📖"],["adhkar","حصن المسلم","🤲"],["reciters","القرّاء","🎧"],["prayer","مواقيت الصلاة","🕌"],["qibla","اتجاه القبلة","🧭"],["tasbeeh","المسبحة","📿"],["features","مزايا إضافية","🌙"]] as [Tab,string,string][]).map(([tab,label,icon])=><Pressable key={tab} onPress={()=>go(tab)} style={s.quick}><Text style={s.icon}>{icon}</Text><Text style={s.quickText}>{label}</Text></Pressable>)}
   </View><Text style={s.small}>ملاحظة: مواقيت الصلاة الدقيقة تحتاج إلى خدمة حساب مخصصة وموقعك. تحقق من توقيت بلدك من مصدر موثوق.</Text>
 </ScrollView>}
-function Quran(){const [selected,setSelected]=useState(0);const surah=surahs[selected];return <ScrollView contentContainerStyle={s.content}>
+function Quran(){
+ const [selected,setSelected]=useState(0),[last,setLast]=useState({surah:1,ayah:1}),[bookmarks,setBookmarks]=useState<{surah:number;ayah:number;name:string}[]>([]);
+ const KEY="noor:features:v1";
+ useEffect(()=>{AsyncStorage.getItem(KEY).then(v=>{if(v){const x=JSON.parse(v);setLast(x.last??{surah:1,ayah:1});setBookmarks(x.bookmarks??[]);}}).catch(()=>{});},[]);
+ const save=async(patch:Record<string,any>)=>{try{const v=await AsyncStorage.getItem(KEY);await AsyncStorage.setItem(KEY,JSON.stringify({...{last,bookmarks},...(v?JSON.parse(v):{}),...patch}));}catch{}};
+ const surah=surahs[selected];
+ const mark=async(ayah:number)=>{const exists=bookmarks.some(b=>b.surah===surah.number&&b.ayah===ayah);const next=exists?bookmarks.filter(b=>!(b.surah===surah.number&&b.ayah===ayah)):[...bookmarks,{surah:surah.number,ayah,name:surah.name}];setBookmarks(next);await save({bookmarks:next});};
+ const progress=async(ayah:number)=>{const next={surah:surah.number,ayah};setLast(next);await save({last:next});};
+ return <ScrollView contentContainerStyle={s.content}>
   <Text style={s.pageTitle}>القرآن الكريم</Text><Text style={s.hint}>المصحف بالرسم العثماني · {surahs.length} سورة</Text>
+  <Text style={s.small}>آخر موضع محفوظ: سورة {surahs[last.surah-1]?.name??"الفاتحة"} · الآية {last.ayah}</Text>
   <ScrollView horizontal showsHorizontalScrollIndicator={false}>{surahs.map((x,i)=><Pressable key={x.number} onPress={()=>setSelected(i)} style={[s.chip,i===selected&&s.chipOn]}><Text style={s.chipText}>{x.number}. {x.name}</Text></Pressable>)}</ScrollView>
-  <Card><Text style={s.surahName}>{surah.name}</Text><Text style={s.small}>عدد الآيات: {surah.ayahs.length}</Text>{surah.ayahs.map(a=><View key={a.id} style={s.ayah}><Text style={s.ayahText}>{a.text}</Text><Text style={s.ayahNum}>{a.id}</Text></View>)}</Card>
-  <Text style={s.small}>نص القرآن بالرسم العثماني؛ راجع data/SOURCES.md للمصادر والنسبة.</Text>
-</ScrollView>}
+  <Card><Text style={s.surahName}>{surah.name}</Text><Text style={s.small}>عدد الآيات: {surah.ayahs.length}</Text>{surah.ayahs.map(a=><View key={a.id} style={s.ayah}><Pressable onPress={()=>mark(a.id)} style={{padding:6}}><Text style={{color:colors.gold,fontSize:18}}>{bookmarks.some(b=>b.surah===surah.number&&b.ayah===a.id)?"★":"☆"}</Text></Pressable><Pressable onPress={()=>progress(a.id)} style={{flex:1}}><Text style={s.ayahText}>{a.text}</Text><Text style={s.ayahNum}>{a.id}</Text></Pressable></View>)}</Card>
+  <Text style={s.small}>اضغط على الآية لحفظ موضع القراءة، أو على النجمة لإضافة علامة مرجعية. راجع data/SOURCES.md للمصادر والنسبة.</Text>
+ </ScrollView>
+}
 function Adhkar(){const [selected,setSelected]=useState(0);const section=adhkar[selected];return <ScrollView contentContainerStyle={s.content}>
   <Text style={s.pageTitle}>حصن المسلم</Text><Text style={s.hint}>أذكار من الكتاب والسنة</Text>
   <ScrollView horizontal showsHorizontalScrollIndicator={false}>{adhkar.map((x,i)=><Pressable key={x.title} onPress={()=>setSelected(i)} style={[s.chip,i===selected&&s.chipOn]}><Text style={s.chipText}>{x.title}</Text></Pressable>)}</ScrollView>
