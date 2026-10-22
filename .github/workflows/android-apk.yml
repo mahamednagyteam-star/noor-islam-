@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: noor-islam-android-${{ github.ref }}
@@ -22,6 +23,36 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Remove previous workflow run history (one-time cleanup)
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[cleanup-old-runs]')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t OLD_RUN_IDS < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" --jq ".workflow_runs[].id | select(. != ${GITHUB_RUN_ID})")
+          echo "Found ${#OLD_RUN_IDS[@]} older workflow runs."
+          # Cancel active/queued runs first so GitHub allows their records to be deleted.
+          for run_id in "${OLD_RUN_IDS[@]}"; do
+            status="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.status' 2>/dev/null || echo missing)"
+            if [[ "${status}" != "completed" && "${status}" != "missing" ]]; then
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" >/dev/null 2>&1 || true
+            fi
+          done
+          for run_id in "${OLD_RUN_IDS[@]}"; do
+            status="unknown"
+            for attempt in {1..30}; do
+              status="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.status' 2>/dev/null || echo missing)"
+              [[ "${status}" == "completed" || "${status}" == "missing" ]] && break
+              sleep 2
+            done
+            if [[ "${status}" == "completed" ]]; then
+              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" >/dev/null || echo "Could not delete run ${run_id}"
+            else
+              echo "Skipping run ${run_id}; status is ${status}"
+            fi
+          done
+          echo "Old workflow-run cleanup finished."
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
