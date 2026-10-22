@@ -1,0 +1,19 @@
+{
+  "name": "noor-islam",
+  "version": "1.0.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "build:android": "expo prebuild --platform android"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "expo": "~52.0.0",
+    "expo-av": "~15.0.2",
+    "expo-location": "~18.0.4",
+    "react": "18.3.1",
+    "react-native": "0.76.9"
+  }
+}
