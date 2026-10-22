@@ -19,7 +19,9 @@
     "react-native": "0.76.9",
     "expo-notifications": "~0.29.14",
     "expo-file-system": "~18.0.12",
-    "adhan": "^4.4.3"
+    "adhan": "^4.4.3",
+    "expo-asset": "~11.0.5",
+    "expo-system-ui": "~4.0.9"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
