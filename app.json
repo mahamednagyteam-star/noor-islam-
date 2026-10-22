@@ -5,16 +5,28 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "platforms": ["android", "ios", "web"],
+    "platforms": [
+      "android",
+      "ios",
+      "web"
+    ],
     "android": {
       "package": "com.noorislam.app",
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
     },
     "ios": {
       "bundleIdentifier": "com.noorislam.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "يستخدم التطبيق موقعك لحساب اتجاه القبلة ومواقيت الصلاة."
       }
-    }
+    },
+    "plugins": [
+      "expo-notifications"
+    ]
   }
-}
+}\n
