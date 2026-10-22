@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View, Platform } from "react-native";
+import { Alert, NativeModules, Pressable, ScrollView, StyleSheet, Text, View, Platform } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -38,6 +38,8 @@ export default function Prayer(){
   }catch{Alert.alert("تعذر حساب المواقيت","تأكد من تفعيل الموقع، ثم أعد المحاولة. حساب المواقيت نفسه يعمل دون إنترنت.");}
   finally{setBusy(false);}
  };
+ const syncPrayerWidget=(location:Coords)=>{try{const now=new Date();let entries=Object.entries(getTimes(location,now));let next=entries.find(([,at])=>at>now);if(!next){const tomorrow=new Date(now);tomorrow.setDate(tomorrow.getDate()+1);entries=Object.entries(getTimes(location,tomorrow));next=entries[0];}if(!next)return;const module=NativeModules.PrayerWidgetModule;if(module?.updateWidget)module.updateWidget(names[next[0]]??next[0],clock(next[1]),String(next[1].getTime()),"سبحان الله وبحمده").catch(()=>{});}catch{}};
+ useEffect(()=>{if(!coords)return;syncPrayerWidget(coords);const timer=setInterval(()=>syncPrayerWidget(coords),60000);return()=>clearInterval(timer);},[coords]);
  useEffect(()=>{load();let subscription:Location.LocationSubscription|undefined;Location.watchHeadingAsync(h=>setHeading(h.trueHeading>=0?h.trueHeading:h.magHeading)).then(x=>{subscription=x}).catch(()=>{});if(Platform.OS==="android"){Notifications.setNotificationChannelAsync("adhan",{name:"أذان الصلاة",importance:Notifications.AndroidImportance.MAX,sound:"adhan.mp3",vibrationPattern:[0,250,250,250],lightColor:"#D4AF37"}).catch(()=>{});Notifications.setNotificationChannelAsync("fajr-adhan",{name:"أذان الفجر",importance:Notifications.AndroidImportance.MAX,sound:"fajr.mp3",vibrationPattern:[0,250,250,250],lightColor:"#D4AF37"}).catch(()=>{});}return()=>subscription?.remove();},[]);
  const schedule=async()=>{
   try{
