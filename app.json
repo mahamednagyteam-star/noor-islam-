@@ -16,7 +16,9 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "POST_NOTIFICATIONS",
-        "VIBRATE"
+        "VIBRATE",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED"
       ]
     },
     "ios": {
@@ -26,7 +28,15 @@
       }
     },
     "plugins": [
-      "expo-notifications"
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/adhan/adhan.mp3",
+            "./assets/adhan/fajr.mp3"
+          ]
+        }
+      ]
     ]
   }
 }
