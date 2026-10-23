@@ -9,7 +9,8 @@
     "prepare:data": "node scripts/prepare-data.mjs",
     "prebuild:android": "npm run prepare:data && npx expo prebuild --platform android",
     "build:android": "npm run prebuild:android && cd android && ./gradlew assembleRelease",
-    "validate:quran-pages": "node scripts/validate-quran-pages.mjs"
+    "validate:quran-pages": "node scripts/validate-quran-pages.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
