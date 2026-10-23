@@ -17,64 +17,39 @@ permissions:
 
 concurrency:
   group: noor-islam-android-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-apk:
-    name: Clean build and assemble release APK
+    name: Build and validate Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       CI: "1"
-      npm_config_cache: ${{ runner.temp }}/npm-cache
-
     steps:
-      - name: Checkout clean source
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          clean: true
-          fetch-depth: 1
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Remove temporary build data
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf node_modules android .expo
-          rm -rf "${HOME}/.gradle/caches" "${HOME}/.gradle/daemon" "${HOME}/.gradle/native"
-          rm -rf "${npm_config_cache}"
-          mkdir -p "${npm_config_cache}"
-          npm cache verify || true
-          echo "Workspace and local build caches cleared."
-
-      - name: Install dependencies from scratch
+      - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Prepare app data
         run: npm run prepare:data
-
       - name: TypeScript type check
         run: npm run typecheck
-
       - name: Validate Quran page boundaries
         run: npm run validate:quran-pages
-
-      - name: Validate adhkar data
-        run: node -e "const h=require('./data/hisn-muslim.json'); if(!h||typeof h!=='object'||Array.isArray(h)||!Object.keys(h).length) throw new Error('Adhkar data validation failed'); console.log('Validated',Object.keys(h).length,'adhkar sections')"
-
-      - name: Generate fresh native Android project
+      - name: Validate app data
+        run: node -e "const q=require('./data/quran-uthmani.json'); const h=require('./data/hisn-muslim.json'); if(!Array.isArray(q)||q.length!==114||!h||typeof h!=='object'||Array.isArray(h)) throw new Error('App data validation failed'); console.log('Validated Quran surahs:',q.length,'; adhkar sections:',Object.keys(h).length)"
+      - name: Generate native Android project
         run: npx expo prebuild --platform android --clean
-
       - name: Install Android NDK with retry
         shell: bash
         env:
@@ -92,7 +67,6 @@ jobs:
           fi
           for attempt in 1 2 3; do
             echo "Installing NDK ${ANDROID_NDK_VERSION} (attempt ${attempt}/3)"
-            rm -rf "${SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}"
             if "${SDKMANAGER}" --sdk_root="${SDK_ROOT}" --install "ndk;${ANDROID_NDK_VERSION}"; then
               if [[ -x "${SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" ]]; then
                 echo "NDK installation verified."
@@ -104,13 +78,11 @@ jobs:
           done
           echo "NDK installation failed after three attempts."
           exit 1
-
-      - name: Build release APK without Gradle build cache
+      - name: Build release APK
         working-directory: android
         env:
           NODE_ENV: production
-        run: ./gradlew --no-build-cache --no-configuration-cache --refresh-dependencies clean assembleRelease
-
+        run: ./gradlew assembleRelease
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
