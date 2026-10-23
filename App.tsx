@@ -43,7 +43,7 @@ function Quran(){
  const [noteText,setNoteText]=useState("");
  const KEY="noor:features:v1";
  useEffect(()=>{
-  AsyncStorage.getItem(KEY).then(v=>{if(v){const x=JSON.parse(v);setLast(x.last??{surah:1,ayah:1,page:1});setBookmarks(x.bookmarks??[]);setVerseNotes(x.verseNotes??{});}}).catch(()=>{});
+  AsyncStorage.getItem(KEY).then(v=>{if(v){const x=JSON.parse(v);setLast(x.last??{surah:1,ayah:1,page:1});setPage(Math.max(1,Math.min(604,x.last?.page??1)));setBookmarks(x.bookmarks??[]);setVerseNotes(x.verseNotes??{});}}).catch(()=>{});
   AsyncStorage.getItem("noor:settings:v1").then(v=>{if(v){const x=JSON.parse(v);setQuranFontSize(Math.max(18,Math.min(36,x.quranFontSize??25)));}}).catch(()=>{});
  },[]);
  const save=async(patch:Record<string,any>)=>{try{const v=await AsyncStorage.getItem(KEY);await AsyncStorage.setItem(KEY,JSON.stringify({...{last,bookmarks},...(v?JSON.parse(v):{}),...patch}));}catch{}};
