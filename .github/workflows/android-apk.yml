@@ -14,11 +14,10 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: noor-islam-android-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-apk:
@@ -35,20 +34,6 @@ jobs:
         with:
           clean: true
           fetch-depth: 1
-
-      - name: Clear repository Actions caches
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t CACHE_IDS < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/caches?per_page=100" --jq '.actions_caches[].id')
-          echo "Found ${#CACHE_IDS[@]} Actions cache entries."
-          for cache_id in "${CACHE_IDS[@]}"; do
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/caches/${cache_id}" >/dev/null
-            echo "Deleted cache ${cache_id}"
-          done
-          echo "Actions cache cleanup complete."
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
