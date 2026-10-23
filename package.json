@@ -8,7 +8,9 @@
     "android": "expo start --android",
     "prepare:data": "node scripts/prepare-data.mjs",
     "prebuild:android": "npm run prepare:data && npx expo prebuild --platform android",
-    "build:android": "npm run prebuild:android && cd android && ./gradlew assembleRelease"
+    "build:android": "npm run prebuild:android && cd android && ./gradlew assembleRelease",
+    "validate:quran-pages": "node scripts/validate-quran-pages.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
@@ -21,7 +23,8 @@
     "expo-file-system": "~18.0.12",
     "adhan": "^4.4.3",
     "expo-asset": "~11.0.5",
-    "expo-system-ui": "~4.0.9"
+    "expo-system-ui": "~4.0.9",
+    "@react-native-voice/voice": "^3.2.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

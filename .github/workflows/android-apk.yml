@@ -2,13 +2,18 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
+      - feature/complete-app-enhancements
   pull_request:
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: noor-islam-android-${{ github.ref }}
@@ -16,43 +21,14 @@ concurrency:
 
 jobs:
   build-apk:
+    name: Build and validate Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
-      CI: 1
+      CI: "1"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Remove previous workflow run history (one-time cleanup)
-        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[cleanup-old-runs]')
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t OLD_RUN_IDS < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/runs?per_page=100" --jq ".workflow_runs[].id | select(. != ${GITHUB_RUN_ID})")
-          echo "Found ${#OLD_RUN_IDS[@]} older workflow runs."
-          # Cancel active/queued runs first so GitHub allows their records to be deleted.
-          for run_id in "${OLD_RUN_IDS[@]}"; do
-            status="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.status' 2>/dev/null || echo missing)"
-            if [[ "${status}" != "completed" && "${status}" != "missing" ]]; then
-              gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" >/dev/null 2>&1 || true
-            fi
-          done
-          for run_id in "${OLD_RUN_IDS[@]}"; do
-            status="unknown"
-            for attempt in {1..30}; do
-              status="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.status' 2>/dev/null || echo missing)"
-              [[ "${status}" == "completed" || "${status}" == "missing" ]] && break
-              sleep 2
-            done
-            if [[ "${status}" == "completed" ]]; then
-              gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" >/dev/null || echo "Could not delete run ${run_id}"
-            else
-              echo "Skipping run ${run_id}; status is ${status}"
-            fi
-          done
-          echo "Old workflow-run cleanup finished."
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -61,15 +37,19 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: "17"
       - name: Install dependencies
-        run: npm install
-      - name: Download app data
+        run: npm install --no-audit --no-fund
+      - name: Prepare app data
         run: npm run prepare:data
-      - name: Validate data files
-        run: node -e "const q=require('./data/quran-uthmani.json'); const h=require('./data/hisn-muslim.json'); if(!Array.isArray(q)||q.length!==114||!h||typeof h!=='object') process.exit(1); console.log('Validated Quran surahs:',q.length,'; adhkar sections:',Object.keys(h).length)"
+      - name: TypeScript type check
+        run: npm run typecheck
+      - name: Validate Quran page boundaries
+        run: npm run validate:quran-pages
+      - name: Validate app data
+        run: node -e "const q=require('./data/quran-uthmani.json'); const h=require('./data/hisn-muslim.json'); if(!Array.isArray(q)||q.length!==114||!h||typeof h!=='object'||Array.isArray(h)) throw new Error('App data validation failed'); console.log('Validated Quran surahs:',q.length,'; adhkar sections:',Object.keys(h).length)"
       - name: Generate native Android project
-        run: npx expo prebuild --platform android
+        run: npx expo prebuild --platform android --clean
       - name: Install Android NDK with retry
         shell: bash
         env:
@@ -79,7 +59,7 @@ jobs:
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           SDKMANAGER="${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
           if [[ ! -x "${SDKMANAGER}" ]]; then
-            SDKMANAGER="$(find "${SDK_ROOT}/cmdline-tools" -type f -name sdkmanager -perm -u+x 2>/dev/null | sort | tail -n 1)"
+            SDKMANAGER="$(find "${SDK_ROOT}/cmdline-tools" -type f -name sdkmanager -perm -u+x 2>/dev/null | sort | tail -n 1 || true)"
           fi
           if [[ -z "${SDKMANAGER}" || ! -x "${SDKMANAGER}" ]]; then
             echo "Could not find Android sdkmanager under ${SDK_ROOT}"
@@ -87,10 +67,9 @@ jobs:
           fi
           for attempt in 1 2 3; do
             echo "Installing NDK ${ANDROID_NDK_VERSION} (attempt ${attempt}/3)"
-            rm -rf "${SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}"
             if "${SDKMANAGER}" --sdk_root="${SDK_ROOT}" --install "ndk;${ANDROID_NDK_VERSION}"; then
               if [[ -x "${SDK_ROOT}/ndk/${ANDROID_NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" ]]; then
-                echo "NDK ${ANDROID_NDK_VERSION} installed and verified."
+                echo "NDK installation verified."
                 exit 0
               fi
               echo "NDK installation returned success but clang is missing."

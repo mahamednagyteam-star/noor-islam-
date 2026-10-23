@@ -18,13 +18,16 @@
         "POST_NOTIFICATIONS",
         "VIBRATE",
         "SCHEDULE_EXACT_ALARM",
-        "RECEIVE_BOOT_COMPLETED"
+        "RECEIVE_BOOT_COMPLETED",
+        "RECORD_AUDIO"
       ]
     },
     "ios": {
       "bundleIdentifier": "com.noorislam.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "يستخدم التطبيق موقعك لحساب اتجاه القبلة ومواقيت الصلاة."
+        "NSLocationWhenInUseUsageDescription": "يستخدم التطبيق موقعك لحساب اتجاه القبلة ومواقيت الصلاة.",
+        "NSMicrophoneUsageDescription": "يستخدم التطبيق الميكروفون لتحويل كلامك إلى نص عند اختيار البحث الصوتي.",
+        "NSSpeechRecognitionUsageDescription": "يستخدم التطبيق التعرف على الكلام للبحث عن آيات وأذكار تطلبها صوتيًا."
       }
     },
     "plugins": [
@@ -36,7 +39,8 @@
             "./assets/adhan/fajr.mp3"
           ]
         }
-      ]
+      ],
+      "./plugins/withPrayerWidget"
     ]
   }
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View, Platform } from "react-native";
+import { Alert, NativeModules, Pressable, ScrollView, StyleSheet, Text, View, Platform } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -38,6 +38,8 @@ export default function Prayer(){
   }catch{Alert.alert("تعذر حساب المواقيت","تأكد من تفعيل الموقع، ثم أعد المحاولة. حساب المواقيت نفسه يعمل دون إنترنت.");}
   finally{setBusy(false);}
  };
+ const syncPrayerWidget=(location:Coords)=>{try{const now=new Date();let entries=Object.entries(getTimes(location,now));let next=entries.find(([,at])=>at>now);if(!next){const tomorrow=new Date(now);tomorrow.setDate(tomorrow.getDate()+1);entries=Object.entries(getTimes(location,tomorrow));next=entries[0];}if(!next)return;const module=NativeModules.PrayerWidgetModule;if(module?.updateWidget)module.updateWidget(names[next[0]]??next[0],clock(next[1]),String(next[1].getTime()),"سبحان الله وبحمده").catch(()=>{});}catch{}};
+ useEffect(()=>{if(!coords)return;syncPrayerWidget(coords);const timer=setInterval(()=>syncPrayerWidget(coords),60000);return()=>clearInterval(timer);},[coords]);
  useEffect(()=>{load();let subscription:Location.LocationSubscription|undefined;Location.watchHeadingAsync(h=>setHeading(h.trueHeading>=0?h.trueHeading:h.magHeading)).then(x=>{subscription=x}).catch(()=>{});if(Platform.OS==="android"){Notifications.setNotificationChannelAsync("adhan",{name:"أذان الصلاة",importance:Notifications.AndroidImportance.MAX,sound:"adhan.mp3",vibrationPattern:[0,250,250,250],lightColor:"#D4AF37"}).catch(()=>{});Notifications.setNotificationChannelAsync("fajr-adhan",{name:"أذان الفجر",importance:Notifications.AndroidImportance.MAX,sound:"fajr.mp3",vibrationPattern:[0,250,250,250],lightColor:"#D4AF37"}).catch(()=>{});}return()=>subscription?.remove();},[]);
  const schedule=async()=>{
   try{
@@ -50,7 +52,7 @@ export default function Prayer(){
     await Notifications.setNotificationChannelAsync("adhan",{name:"أذان الصلاة",importance:Notifications.AndroidImportance.MAX,sound:"adhan.mp3",vibrationPattern:[0,250,250,250],lightColor:"#D4AF37"});
     await Notifications.setNotificationChannelAsync("fajr-adhan",{name:"أذان الفجر",importance:Notifications.AndroidImportance.MAX,sound:"fajr.mp3",vibrationPattern:[0,250,250,250],lightColor:"#D4AF37"});
    }
-   await Notifications.cancelAllScheduledNotificationsAsync();
+   const existing=await Notifications.getAllScheduledNotificationsAsync();for(const item of existing){const category=(item.content.data as any)?.category;const title=item.content.title??"";if(category==="prayer-alert"||title==="حان وقت الصلاة"||title==="حان وقت صلاة الفجر")await Notifications.cancelScheduledNotificationAsync(item.identifier).catch(()=>{});}
    const now=new Date();let count=0;
    for(let offset=0;offset<7;offset++){
     const day=new Date(now);day.setHours(0,0,0,0);day.setDate(day.getDate()+offset);
@@ -58,7 +60,7 @@ export default function Prayer(){
     for(const [key,label] of Object.entries(names)){
      const at=daily[key as keyof typeof daily];if(at<=now)continue;
      const fajr=key==="Fajr",sound=fajr?"fajr.mp3":"adhan.mp3",channelId=fajr?"fajr-adhan":"adhan";
-     await Notifications.scheduleNotificationAsync({content:{title:fajr?"حان وقت صلاة الفجر":"حان وقت الصلاة",body:`حان الآن موعد صلاة ${label}`,sound,priority:Notifications.AndroidNotificationPriority.MAX},trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:at,channelId}});
+     await Notifications.scheduleNotificationAsync({content:{title:fajr?"حان وقت صلاة الفجر":"حان وقت الصلاة",body:`حان الآن موعد صلاة ${label}`,data:{category:"prayer-alert",prayer:key},sound,priority:Notifications.AndroidNotificationPriority.MAX},trigger:{type:Notifications.SchedulableTriggerInputTypes.DATE,date:at,channelId}});
      count++;
     }
    }

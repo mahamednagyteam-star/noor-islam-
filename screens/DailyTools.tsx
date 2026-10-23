@@ -18,6 +18,8 @@ export default function DailyTools({ surahs, adhkar }: Props) {
  const [notes, setNotes] = useState("");
  const [query, setQuery] = useState("");
  const [showVerse, setShowVerse] = useState(false);
+ const [practiceSurahIndex, setPracticeSurahIndex] = useState(17);
+ const [practiceAyahIndex, setPracticeAyahIndex] = useState(0);
  const [focusMinutes, setFocusMinutes] = useState("15");
  const [focusLeft, setFocusLeft] = useState(0);
  const [ramadanTasks, setRamadanTasks] = useState<string[]>([]);
@@ -64,10 +66,9 @@ export default function DailyTools({ surahs, adhkar }: Props) {
   }
   return found;
  }, [query, surahs, adhkar]);
- const randomVerse = useMemo(() => {
-  const s = surahs[17] ?? surahs[0];
-  return s?.ayahs[Math.min(4, (s?.ayahs.length ?? 1)-1)];
- }, [surahs]);
+ const practiceSurah = surahs[practiceSurahIndex] ?? surahs[0];
+ const randomVerse = practiceSurah?.ayahs[practiceAyahIndex] ?? practiceSurah?.ayahs[0];
+ const nextPractice = () => { const nextSurah = Math.floor(Math.random() * Math.max(1, surahs.length)); const target = surahs[nextSurah]; setPracticeSurahIndex(nextSurah); setPracticeAyahIndex(Math.floor(Math.random() * Math.max(1, target?.ayahs.length ?? 1))); setShowVerse(false); };
  const exportData = async () => {
   try {
    const raw = await AsyncStorage.getItem(STORE);
@@ -123,9 +124,9 @@ export default function DailyTools({ surahs, adhkar }: Props) {
 
   <View style={s.card}>
    <Text style={s.heading}>🧠 تمرين مراجعة الحفظ</Text>
-   <Text style={s.note}>مثال تدريبي من سورة الكهف. اضغط لإظهار النص ثم راجع من مصحف موثوق.</Text>
+   <Text style={s.note}>آية عشوائية من القرآن للتدريب. اضغط لإظهار النص، أو اختر آية أخرى ثم راجع من مصحف موثوق.</Text>
    <Text style={[s.verse,{fontSize}]}>{showVerse ? (randomVerse?.text ?? "تعذر تحميل الآية") : "••••••••••••••••••"}</Text>
-   <Pressable style={s.button} onPress={() => setShowVerse(v=>!v)}><Text style={s.buttonText}>{showVerse?"إخفاء الآية":"إظهار الآية"}</Text></Pressable>
+   <Text style={s.note}>سورة {practiceSurah?.name ?? "—"} · الآية {ar(randomVerse?.id ?? 0)}</Text><View style={s.row}><Pressable style={s.button} onPress={() => setShowVerse(v=>!v)}><Text style={s.buttonText}>{showVerse?"إخفاء الآية":"إظهار الآية"}</Text></Pressable><Pressable style={s.secondary} onPress={nextPractice}><Text style={s.body}>آية أخرى</Text></Pressable></View>
    <View style={s.row}><Pressable style={s.secondary} onPress={()=>setFontSize(v=>Math.max(16,v-2))}><Text style={s.body}>تصغير الخط</Text></Pressable><Pressable style={s.secondary} onPress={()=>setFontSize(v=>Math.min(34,v+2))}><Text style={s.body}>تكبير الخط</Text></Pressable></View>
    <Text style={s.note}>هذا تمرين بسيط؛ لا يتضمن حاليًا التعرف الآلي على التلاوة أو تقييم الحفظ.</Text>
   </View>
