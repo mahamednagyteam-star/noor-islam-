@@ -78,8 +78,8 @@ jobs:
       - name: Prepare app data
         run: npm run prepare:data
 
-      - name: Validate data files
-        run: node -e "const q=require('./data/quran-uthmani.json'); const h=require('./data/hisn-muslim.json'); if(!Array.isArray(q)||q.length!==114||!h||typeof h!=='object') process.exit(1); console.log('Validated Quran surahs:',q.length,'; adhkar sections:',Object.keys(h).length)"
+      - name: Validate Quran, mushaf pages, and adhkar data
+        run: node -e "const q=require('./data/quran-uthmani.json'); const p=require('./data/quran-pages.json'); const h=require('./data/hisn-muslim.json'); if(!Array.isArray(q)||q.length!==114||!Array.isArray(p)||p.length!==604||p[0].p!==1||p[0].s!==1||p[0].a!==1||p.some((x,i)=>x.p!==i+1||x.s<1||x.s>114||x.a<1)||!h||typeof h!=='object') throw new Error('Quran/page/adhkar data validation failed'); console.log('Validated',q.length,'surahs,',p.length,'mushaf pages and',Object.keys(h).length,'adhkar sections')"
 
       - name: Generate fresh native Android project
         run: npx expo prebuild --platform android --clean
