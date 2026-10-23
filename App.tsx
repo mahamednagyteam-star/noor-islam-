@@ -78,13 +78,14 @@ function Quran(){
   if(!noteText.trim())delete next[noteKey(selectedAyah.surah,selectedAyah.ayah)];
   setVerseNotes(next);await save({verseNotes:next});setNoteText("");
  };
- const surahStart=surahs.find(x=>x.number===group?.startSurah);
+ const firstVerse=group?.verses[0];
+ const surahStart=surahs.find(x=>x.number===firstVerse?.surahNumber);
  return <ScrollView contentContainerStyle={s.content}>
   <Text style={s.pageTitle}>المصحف الشريف</Text>
   <Text style={s.hint}>عرض صفحات المصحف المدني · ٦٠٤ صفحة · الرسم العثماني</Text>
   <View style={[s.card,{alignItems:"center",gap:8}]}>
    <Text style={s.cardTitle}>صفحة {group?.page??1} من 604</Text>
-   <Text style={s.small}>سورة {surahStart?.name??group?.verses[0]?.surahName??"الفاتحة"} · بداية الصفحة: الآية {group?.startAyah??1}</Text>
+   <Text style={s.small}>تبدأ في سورة {surahStart?.name??"الفاتحة"} · الآية {firstVerse?.id??group?.startAyah??1}</Text>
    <View style={{flexDirection:"row",gap:10,width:"100%"}}>
     <Pressable disabled={page<=1} onPress={()=>goToPage(page-1)} style={[s.button,{flex:1,opacity:page<=1?0.4:1}]}><Text style={s.buttonText}>الصفحة السابقة</Text></Pressable>
     <Pressable onPress={()=>goToPage(last.page||1)} style={[s.button,{flex:1}]}><Text style={s.buttonText}>آخر موضع</Text></Pressable>
@@ -95,7 +96,7 @@ function Quran(){
   <ScrollView horizontal showsHorizontalScrollIndicator={false}>{surahs.map(x=><Pressable key={x.number} onPress={()=>goToSurah(x.number)} style={[s.chip,group?.startSurah===x.number&&s.chipOn]}><Text style={s.chipText}>{x.number}. {x.name}</Text></Pressable>)}</ScrollView>
   <View style={[s.card,{paddingHorizontal:20,paddingVertical:24,borderRadius:8,borderColor:colors.gold,borderWidth:1,minHeight:460}]}>
    <View style={{alignItems:"center",borderBottomWidth:1,borderBottomColor:colors.line,paddingBottom:14,marginBottom:18}}>
-    <Text style={[s.surahName,{fontSize:25}]}>{surahStart?.name??group?.verses[0]?.surahName??"الفاتحة"}</Text>
+    <Text style={[s.surahName,{fontSize:25}]}>{surahStart?.name??"الفاتحة"}</Text>
     <Text style={s.small}>الجزء من صفحة المصحف رقم {group?.page??1}</Text>
    </View>
    <Text style={{color:colors.text,textAlign:"justify",writingDirection:"rtl",fontSize:quranFontSize,lineHeight:Math.round(quranFontSize*2.05)}}>
