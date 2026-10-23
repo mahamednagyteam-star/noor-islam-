@@ -63,6 +63,9 @@ jobs:
       - name: Prepare app data
         run: npm run prepare:data
 
+      - name: TypeScript type check
+        run: npm run typecheck
+
       - name: Validate Quran page boundaries
         run: npm run validate:quran-pages
 
